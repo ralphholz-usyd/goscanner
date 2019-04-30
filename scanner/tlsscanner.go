@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"bufio"
+	tls2 "crypto/tls"
 	"errors"
 	"io"
 	"net"
@@ -57,7 +58,7 @@ func scanTLS(conn net.Conn, serverName string, timeout time.Duration, maxVersion
 		InsecureSkipVerify: true,
 		// Use SNI if domain name is available
 		ServerName: serverName,
-		MaxVersion: maxVersion,
+		MaxVersion: tls2.VersionTLS13,
 		// Use cache to speed up resumption for multiple HTTP requests
 		ClientSessionCache: clientSessionCache,
 	}
