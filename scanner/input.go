@@ -3,6 +3,7 @@ package scanner
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"encoding/csv"
 	"io"
 	"io/ioutil"
@@ -12,7 +13,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/tumi8/goscanner/scanner/asset"
-	"github.com/tumi8/tls"
 )
 
 // ReadIPsFromTxt reads IP addresses separated by newlines from an input file and sends them to the channel
@@ -160,6 +160,7 @@ func ReadCiphersFromAsset() map[uint16]string {
 	cipherSuites[tls.VersionTLS10] = `TLSv1`
 	cipherSuites[tls.VersionTLS11] = `TLSv1.1`
 	cipherSuites[tls.VersionTLS12] = `TLSv1.2`
+	cipherSuites[tls.VersionTLS13] = `TLSv1.3`
 
 	return cipherSuites
 }
