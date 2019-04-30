@@ -31,9 +31,6 @@ var chrCsvHeader = []string{"cert_hash", "host", "port", "server_name", "depth"}
 // certCsvHeader represents the header line of the certs.csv file
 var certCsvHeader = []string{"cert", "cert_hash"}
 
-// scsvCsvHeader represents the header line of the scsv.csv file
-var scsvCsvHeader = []string{"host", "port", "server_name", "time", "protocol", "cipher", "error_data"}
-
 // httpCsvHeader represents the header line of the http.csv file
 var httpCsvHeader = []string{"host", "port", "server_name", "http_method", "http_path", "http_code", "http_headers", "error_data"}
 
@@ -61,12 +58,6 @@ type HTTPResult struct {
 	httpError   error
 }
 
-// SCSVResult is the result of a TLS handshake with the SCSV downgrade protection pseudo cipher
-type SCSVResult struct {
-	version uint16
-	cipher  uint16
-	err     error
-}
 
 // NewTLSLiveProcessor returns a new processor for results of live scanned TLS hosts
 func NewTLSLiveProcessor(jsonFilename, certDir, tableName string) (ResultProcessor, error) {
@@ -216,7 +207,6 @@ type TLSCertHostProcessor struct {
 	hostFh       *os.File
 	certFh       *os.File
 	chrFh        *os.File
-	scsvFh       *os.File
 	httpFh       *os.File
 	timeDiff     time.Duration
 	certCache    map[string]bool
@@ -226,7 +216,7 @@ type TLSCertHostProcessor struct {
 }
 
 // NewTLSCertHostProcessor returns a new processor for results of scanned TLS hosts
-func NewTLSCertHostProcessor(certfile, hostfile, chrfile, scsvfile, httpfile string, skipErrors bool, hashCache int) ResultProcessor {
+func NewTLSCertHostProcessor(certfile, hostfile, chrfile, httpfile string, skipErrors bool, hashCache int) ResultProcessor {
 	t := TLSCertHostProcessor{}
 
 	// Host file
@@ -268,21 +258,6 @@ func NewTLSCertHostProcessor(certfile, hostfile, chrfile, scsvfile, httpfile str
 	writeHeader = csv.NewWriter(t.chrFh)
 	writeHeader.Write(chrCsvHeader)
 	writeHeader.Flush()
-
-	// SCSV file
-	if scsvfile != "" {
-		scsvFh, err := os.OpenFile(scsvfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"file": scsvfile,
-			}).Fatal("Can not open SCSV file")
-		}
-		t.scsvFh = scsvFh
-
-		writeHeader = csv.NewWriter(t.scsvFh)
-		writeHeader.Write(scsvCsvHeader)
-		writeHeader.Flush()
-	}
 
 	// HTTP file
 	if httpfile != "" {
@@ -342,13 +317,6 @@ func (t TLSCertHostProcessor) Finish() {
 			"file": t.chrFh.Name(),
 		}).Error("Error closing host-certificate-relationship file")
 	}
-	if t.scsvFh != nil {
-		if ok := t.scsvFh.Close(); ok != nil {
-			log.WithFields(log.Fields{
-				"file": t.scsvFh.Name(),
-			}).Error("Error closing SCSV file")
-		}
-	}
 	if t.httpFh != nil {
 		if ok := t.httpFh.Close(); ok != nil {
 			log.WithFields(log.Fields{
@@ -366,7 +334,7 @@ func (t TLSCertHostProcessor) ProcessResult(hIn *Target) {
 		log.Fatal("Error did not pass CertHostTLSTarget to ProcessResult()")
 	}
 	// Dump certificates
-	err := h.Dump(t.hostFh, t.certFh, t.chrFh, t.scsvFh, t.httpFh, t.timeDiff, t.certCache, t.cipherSuites, t.skipErrors, t.cacheFunc)
+	err := h.Dump(t.hostFh, t.certFh, t.chrFh, t.httpFh, t.timeDiff, t.certCache, t.cipherSuites, t.skipErrors, t.cacheFunc)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"host file":                          t.hostFh.Name(),

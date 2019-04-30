@@ -2,30 +2,14 @@ package scanner
 
 import (
 	"bufio"
-	tls2 "crypto/tls"
-	"errors"
+	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/tumi8/tls"
 )
 
-var scsvCiphers = []uint16{
-	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-	tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-	tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-	tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-	tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-	tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-	tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,   // for TLS < 1.2
-	tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, // for TLS < 1.2
-	tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,   // for TLS < 1.2
-	tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, // for TLS < 1.2
-	tls.TLS_FALLBACK_SCSV,
-}
 
 // TLSScanner implements the scanning of the TLS protocol
 type TLSScanner struct {
@@ -34,11 +18,10 @@ type TLSScanner struct {
 	doHTTP       bool
 	HTTPHeaders  []string
 	HTTPRequests []string
-	doSCSV       bool
 }
 
 // NewTLSScanner returns an initialized TLSScanner struct
-func NewTLSScanner(httpHeaders string, httpRequests []string, doSCSV bool) TLSScanner {
+func NewTLSScanner(httpHeaders string, httpRequests []string) TLSScanner {
 
 	doHTTP := httpHeaders != "" || len(httpRequests) != 0
 	headerList := strings.Split(httpHeaders, ",")
@@ -49,7 +32,7 @@ func NewTLSScanner(httpHeaders string, httpRequests []string, doSCSV bool) TLSSc
 	}
 
 	// Create channels for input and output targets
-	return TLSScanner{make(chan *Target, 10000), make(chan *Target), doHTTP, headerList, httpRequests, doSCSV}
+	return TLSScanner{make(chan *Target, 10000), make(chan *Target), doHTTP, headerList, httpRequests}
 }
 
 func scanTLS(conn net.Conn, serverName string, timeout time.Duration, maxVersion uint16, scsv bool, clientSessionCache tls.ClientSessionCache) (*tls.Conn, error) {
@@ -58,12 +41,9 @@ func scanTLS(conn net.Conn, serverName string, timeout time.Duration, maxVersion
 		InsecureSkipVerify: true,
 		// Use SNI if domain name is available
 		ServerName: serverName,
-		MaxVersion: tls2.VersionTLS13,
+		MaxVersion: tls.VersionTLS13,
 		// Use cache to speed up resumption for multiple HTTP requests
 		ClientSessionCache: clientSessionCache,
-	}
-	if scsv {
-		tlsConfig.CipherSuites = scsvCiphers
 	}
 
 	// Establish TLS connection on top of TCP connection
@@ -123,27 +103,6 @@ func (s TLSScanner) ScanProtocol(conn net.Conn, host *Target, timeout time.Durat
 
 				// Add HTTP result
 				(*host).AddResult(remoteAddr, &ScanResult{synStart, synEnd, time.Now().UTC(), HTTPResult{method, path, httpCode, headersStr, err}})
-			}
-		}
-
-		if s.doSCSV {
-			conn, synStart, synEnd, err := reconnect(conn, timeout)
-
-			if err != nil {
-				(*host).AddResult(remoteAddr, &ScanResult{synStart, synEnd, time.Time{}, SCSVResult{0, 0, err}})
-			} else {
-
-				// Use SCSV pseudo cipher with decreased TLS version
-				tlsConn, err = scanTLS(conn, serverName, timeout, tlsVersion-1, true, nil)
-
-				if err != nil {
-					// This is what should happen according to RFC 7507
-					(*host).AddResult(remoteAddr, &ScanResult{synStart, synEnd, time.Now().UTC(), SCSVResult{0, 0, err}})
-				} else {
-					(*host).AddResult(remoteAddr, &ScanResult{synStart, synEnd, time.Now().UTC(), SCSVResult{tlsConn.ConnectionState().Version, tlsConn.ConnectionState().CipherSuite, errors.New("")}})
-				}
-
-				conn.Close()
 			}
 		}
 	}

@@ -290,7 +290,7 @@ func (h *CertHostTLSTarget) AddResult(address string, res *ScanResult) {
 }
 
 // Dump writes the retrieved certificates to a csv file
-func (h *CertHostTLSTarget) Dump(hostFh, certFh, chrFh, scsvFh, httpFh *os.File, timediff time.Duration, certCache map[string]bool, cipherSuites map[uint16]string, skipErrors bool, cacheFunc func([]byte) []byte) error {
+func (h *CertHostTLSTarget) Dump(hostFh, certFh, chrFh, httpFh *os.File, timediff time.Duration, certCache map[string]bool, cipherSuites map[uint16]string, skipErrors bool, cacheFunc func([]byte) []byte) error {
 
 	// Create CSV file instances
 	hostCsv := csv.NewWriter(hostFh)
@@ -308,7 +308,7 @@ func (h *CertHostTLSTarget) Dump(hostFh, certFh, chrFh, scsvFh, httpFh *os.File,
 
 	for address, results := range h.results {
 
-		// Multiple results for one address (e.g. normal + SCSV)
+		// Multiple results for one address (SCSV legacy; probably not used)
 		for _, res := range results {
 
 			// IP and port of the target host
@@ -327,55 +327,33 @@ func (h *CertHostTLSTarget) Dump(hostFh, certFh, chrFh, scsvFh, httpFh *os.File,
 			// Try to convert the result in a TLSResult
 			tlsRes, ok := res.result.(TLSResult)
 			if !ok {
-				scsvRes, ok := res.result.(SCSVResult)
+				// Try to convert the result in an HTTPResult
+				httpRes, ok := res.result.(HTTPResult)
 				if ok {
-					scsvCsv := csv.NewWriter(scsvFh)
-					defer scsvCsv.Flush()
-
-					// Check protocol and cipher
-					if protocol, ok = cipherSuites[tlsRes.version]; !ok {
-						protocol = "not set"
+					// Write row in HTTP CSV file
+					// [host, port, server_name, http_method, http_path, http_code, http_headers
+					httpCsv := csv.NewWriter(httpFh)
+					defer httpCsv.Flush()
+					errorStr := ""
+					if httpRes.httpError != nil {
+						errorStr = httpRes.httpError.Error()
 					}
-					if cipher, ok = cipherSuites[tlsRes.cipher]; !ok {
-						cipher = "not set"
-					}
-
-					if ok := scsvCsv.Write([]string{ip, port, h.domain, strconv.FormatInt(res.synStart.Add(timediff).Unix(), 10), strconv.FormatInt(res.synEnd.Add(timediff).Unix(), 10), strconv.FormatInt(res.scanEnd.Add(timediff).Unix(), 10), protocol, cipher, scsvRes.err.Error()}); ok != nil {
+					if ok := httpCsv.Write([]string{ip, port, h.domain, httpRes.httpMethod, httpRes.httpPath, strconv.Itoa(httpRes.httpCode), httpRes.httpHeaders, errorStr}); ok != nil {
 						log.WithFields(log.Fields{
-							"file": scsvFh.Name(),
-						}).Error("Error writing to SCSV file")
+							"file": httpFh.Name(),
+						}).Error("Error writing to HTTP file")
 					}
+
 					continue
 				} else {
 
-					// Try to convert the result in an HTTPResult
-					httpRes, ok := res.result.(HTTPResult)
-					if ok {
-						// Write row in HTTP CSV file
-						// [host, port, server_name, http_method, http_path, http_code, http_headers
-						httpCsv := csv.NewWriter(httpFh)
-						defer httpCsv.Flush()
-						errorStr := ""
-						if httpRes.httpError != nil {
-							errorStr = httpRes.httpError.Error()
-						}
-						if ok := httpCsv.Write([]string{ip, port, h.domain, httpRes.httpMethod, httpRes.httpPath, strconv.Itoa(httpRes.httpCode), httpRes.httpHeaders, errorStr}); ok != nil {
-							log.WithFields(log.Fields{
-								"file": httpFh.Name(),
-							}).Error("Error writing to HTTP file")
-						}
-
+					// Try to convert the result in an error value
+					handshakeError, ok = res.result.(error)
+					if !ok || handshakeError == nil {
+						// unknown error, continue with next host
 						continue
-					} else {
-
-						// Try to convert the result in an error value
-						handshakeError, ok = res.result.(error)
-						if !ok || handshakeError == nil {
-							// unknown error, continue with next host
-							continue
-						}
-						resultString = handshakeErrorLookup(handshakeError)
 					}
+					resultString = handshakeErrorLookup(handshakeError)
 				}
 			}
 

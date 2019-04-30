@@ -47,7 +47,6 @@ var opts struct {
 
 	HTTPHeaders  string   `long:"http-headers" description:"Establish HTTP connection and store headers specified as comma-separated list. No HTTP connection if omitted"`
 	HTTPRequests []string `long:"http-request" description:"Establish HTTP connection and perform request to URL. Format: REQUEST-METHOD,PATH, e.g. GET,index.html. Can be specified more than once"`
-	SCSV         bool     `long:"scsv" description:"Send SCSV pseudo cipher suite"`
 
 	SSH bool `long:"ssh" description:"Scan SSH instead of TLS"`
 }
@@ -63,7 +62,6 @@ const (
 	// files to save TLS scan results
 	fileCerts       = "certs.csv"
 	fileCertHostRel = "cert_host_rel.csv"
-	fileScsv        = "scsv.csv"
 	fileHttp        = "http.csv"
 )
 
@@ -231,12 +229,8 @@ func main() {
 			fileCerts := filepath.Join(opts.OutputDir, fileCerts)
 			fileHosts := filepath.Join(opts.OutputDir, fileHosts)
 			fileCertHostRel := filepath.Join(opts.OutputDir, fileCertHostRel)
-			fileScsv := filepath.Join(opts.OutputDir, fileScsv)
 			fileHttp := filepath.Join(opts.OutputDir, fileHttp)
 
-			if !opts.SCSV {
-				fileScsv = ""
-			}
 
 			if opts.HTTPHeaders == "" && len(opts.HTTPRequests) == 0 {
 				fileHttp = ""
@@ -249,7 +243,7 @@ func main() {
 				hashCache = scanner.HashCacheNone
 			}
 
-			proc = scanner.NewTLSCertHostProcessor(fileCerts, fileHosts, fileCertHostRel, fileScsv, fileHttp, opts.SkipErrors, hashCache)
+			proc = scanner.NewTLSCertHostProcessor(fileCerts, fileHosts, fileCertHostRel, fileHttp, opts.SkipErrors, hashCache)
 		}
 
 		// Process results
@@ -268,7 +262,7 @@ func startSSHScanner(addr *net.TCPAddr) scanner.Scanner {
 // startTLSScanner creates a TLSScanner, starts the scanning routine and returns the scanner
 func startTLSScanner(addr *net.TCPAddr) scanner.Scanner {
 	// Create scanner and start scanning
-	s := scanner.Scanner{ProtocolScanner: scanner.NewTLSScanner(opts.HTTPHeaders, opts.HTTPRequests, opts.SCSV), NumRoutines: opts.Concurrency, QPS: opts.QPS, ConnTimeout: time.Duration(opts.Timeout) * time.Millisecond, SynTimeout: time.Duration(opts.SynTimeout) * time.Millisecond, SourceIP: addr, InputFile: opts.Input}
+	s := scanner.Scanner{ProtocolScanner: scanner.NewTLSScanner(opts.HTTPHeaders, opts.HTTPRequests), NumRoutines: opts.Concurrency, QPS: opts.QPS, ConnTimeout: time.Duration(opts.Timeout) * time.Millisecond, SynTimeout: time.Duration(opts.SynTimeout) * time.Millisecond, SourceIP: addr, InputFile: opts.Input}
 	s.Scan()
 	return s
 }
