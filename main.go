@@ -73,6 +73,11 @@ func init() {
 }
 
 func main() {
+
+    // opt-in to TLS 1.3. Needed until go makes TLS 1.3 an opt-out,
+    // probably in Go 1.13.
+    os.Setenv("GODEBUG", os.Getenv("GODEBUG")+",tls13=1")
+
 	// Option parser
 	parser := flags.NewParser(&opts, flags.Default)
 
