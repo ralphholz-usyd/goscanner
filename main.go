@@ -158,7 +158,7 @@ func main() {
 	}
 
 	if err := os.Mkdir(opts.OutputDir, 0755); err != nil {
-		contextLoggerOpts.Fatal("Output directory already exists")
+		contextLoggerOpts.Warning("Output directory already exists")
 	}
 
 	var addr *net.TCPAddr
