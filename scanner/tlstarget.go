@@ -378,9 +378,16 @@ func (h *CertHostTLSTarget) Dump(hostFh, certFh, chrFh, httpFh *os.File, timedif
 				continue
 			}
 
+			endHostSha256Cert := ""
+			endHostSha256SPKI := ""
+
 			for i, cert := range tlsRes.certificates {
 				// Always write out SHA256, irrespective of cache function
 				sha256Hex := hex.EncodeToString(getSHA256(cert.Raw))
+				if i == 0 {
+					endHostSha256Cert = sha256Hex
+					endHostSha256SPKI = hex.EncodeToString(getSHA256(cert.RawSubjectPublicKeyInfo))
+				}
 
 				if cacheFunc != nil {
 					cacheBytes := cacheFunc(cert.Raw)
@@ -425,8 +432,8 @@ func (h *CertHostTLSTarget) Dump(hostFh, certFh, chrFh, httpFh *os.File, timedif
 			}
 
 			// Write row in host CSV file
-			// [host, rtt, port, server_name, synStart, synEnd, scanEnd, protocol, cipher, result, verify_err_no, verify_code, server_version, depth, depth_verbose, error_data]
-			if ok := hostCsv.Write([]string{ip, "", port, h.domain, strconv.FormatInt(res.synStart.Add(timediff).Unix(), 10), strconv.FormatInt(res.synEnd.Add(timediff).Unix(), 10), scanEndStr, protocol, cipher, resultString, "", "", "", "", "", handshakeError.Error()}); ok != nil {
+			// [host, rtt, port, server_name, synStart, synEnd, scanEnd, endHostSha256SPKI, endHostSha256Cert, protocol, cipher, result, verify_err_no, verify_code, server_version, depth, depth_verbose, error_data]
+			if ok := hostCsv.Write([]string{ip, "", port, h.domain, strconv.FormatInt(res.synStart.Add(timediff).Unix(), 10), strconv.FormatInt(res.synEnd.Add(timediff).Unix(), 10), scanEndStr, endHostSha256SPKI, endHostSha256Cert, protocol, cipher, resultString, "", "", "", "", "", handshakeError.Error()}); ok != nil {
 				log.WithFields(log.Fields{
 					"file": hostFh.Name(),
 				}).Error("Error writing to host file")
