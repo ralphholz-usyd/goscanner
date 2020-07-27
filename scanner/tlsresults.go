@@ -23,7 +23,7 @@ const beginPublicKey = "-----BEGIN PUBLIC KEY-----"
 const endPublicKey = "-----END PUBLIC KEY-----"
 
 // hostCsvHeader represents the header line of the hosts.csv file
-var hostCsvHeader = []string{"host", "rtt", "port", "server_name", "synStart", "synEnd", "scanEnd", "protocol", "cipher", "resultString", "verify_err_no", "verify_code", "server_version", "depth", "depth_verbose", "error_data"}
+var hostCsvHeader = []string{"host", "rtt", "port", "server_name", "synStart", "synEnd", "scanEnd", "endHostSha256SPKI", "endHostSha256Cert", "protocol", "cipher", "resultString", "verify_err_no", "verify_code", "server_version", "depth", "depth_verbose", "error_data"}
 
 // chrCsvHeader represents the header line of the cert_host_rel.csv file
 var chrCsvHeader = []string{"cert_hash", "host", "port", "server_name", "depth"}
